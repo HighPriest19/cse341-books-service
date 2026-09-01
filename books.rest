@@ -1,0 +1,32 @@
+### Get all books
+GET http://localhost:8080/books
+
+### Get book by ID
+GET http://localhost:8080/books/6a96480103d3da646f2ef2f0
+
+### Create a book
+POST http://localhost:8080/books
+Content-Type: application/json
+
+{
+  "title": "Dune",
+  "author": "Frank Herbert",
+  "genre": "Sci-Fi",
+  "publishedYear": 1965,
+  "isbn": "978-0441172719"
+}
+
+### Update a book
+PUT http://localhost:8080/books/6a96480103d3da646f2ef2f0
+Content-Type: application/json
+
+{
+  "title": "The Hobbit: Extended",
+  "author": "J.R.R. Tolkien",
+  "genre": "Fantasy",
+  "publishedYear": 1937,
+  "isbn": "978-0261103283"
+}
+
+### Delete a book
+DELETE http://localhost:8080/books/6a96480103d3da646f2ef2f0
