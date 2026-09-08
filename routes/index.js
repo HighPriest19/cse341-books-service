@@ -1,10 +1,12 @@
-const express = require('express');
-const router = express.Router();
+const router = require('express').Router();
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('../swagger.json');
 
-router.get('/', (req, res) => {
-  res.send('Books Web Service API is running');
-});
+// Swagger UI route
+router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+// API routes
 router.use('/books', require('./books'));
+router.use('/authors', require('./authors'));
 
 module.exports = router;
