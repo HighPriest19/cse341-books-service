@@ -1,128 +1,115 @@
-const mongodb = require('../db/connect');
-const { ObjectId } = require('mongodb');
+const Book = require('../models/books');
+const Author = require('../models/authors');
 
-const requiredBookFields = ['title', 'author', 'genre', 'publishedYear', 'isbn'];
-
-const isValidObjectId = (id) => ObjectId.isValid(id) && String(new ObjectId(id)) === id;
-
-const buildBook = (body) => ({
-  title: body.title,
-  author: body.author,
-  genre: body.genre,
-  publishedYear: body.publishedYear,
-  isbn: body.isbn
-});
-
-const getValidationErrors = (book) => {
-  const missingFields = requiredBookFields.filter((field) => book[field] === undefined || book[field] === '');
-  const errors = missingFields.map((field) => `${field} is required`);
-
-  if (book.publishedYear !== undefined && !Number.isInteger(book.publishedYear)) {
-    errors.push('publishedYear must be an integer');
-  }
-
-  return errors;
-};
-
-// GET /books
-const getAll = async (req, res) => {
+const getAllBooks = async (req, res) => {
   try {
-    const lists = await mongodb.getDb().collection('books').find().toArray();
+    const books = await Book.getAllBooks();
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(lists);
+    res.status(200).json(books);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error in getAllBooks:', err);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 };
 
-// GET /books/:id
-const getSingle = async (req, res) => {
-  if (!isValidObjectId(req.params.id)) {
-    return res.status(400).json({ message: 'Invalid Book ID format' });
-  }
-
+const getBookById = async (req, res) => {
   try {
-    const bookId = new ObjectId(req.params.id);
-    const lists = await mongodb.getDb().collection('books').find({ _id: bookId }).toArray();
-    if (lists.length === 0) {
+    const book = await Book.getBookById(req.params.id);
+    if (!book) {
       return res.status(404).json({ message: 'Book not found' });
     }
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(lists[0]);
+    res.status(200).json(book);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error in getBookById:', err);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 };
 
-// POST /books
 const createBook = async (req, res) => {
-  const book = buildBook(req.body);
-  const validationErrors = getValidationErrors(book);
-
-  if (validationErrors.length > 0) {
-    return res.status(400).json({ errors: validationErrors });
-  }
-
   try {
-    const response = await mongodb.getDb().collection('books').insertOne(book);
-    if (response.acknowledged) {
-      res.status(201).json(response);
-    } else {
-      res.status(500).json({ message: 'Failed to create book' });
+    const { id, title, authorId, year, genre } = req.body;
+    if (!id || !title || !authorId || !year || !genre) {
+      return res.status(400).json({ message: 'Missing required book fields: id, title, authorId, year, genre' });
     }
+
+    const existingBook = await Book.getBookById(id);
+    if (existingBook) {
+      return res.status(400).json({ message: 'Book ID already exists' });
+    }
+
+    // Verify referenced author exists
+    const author = await Author.getAuthorById(authorId);
+    if (!author) {
+      return res.status(400).json({ message: 'Referenced authorId does not exist' });
+    }
+
+    await Book.createBook({
+      id,
+      title,
+      authorId,
+      year: Number(year),
+      genre
+    });
+
+    res.status(201).json({ message: 'Book created successfully' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error in createBook:', err);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 };
 
-// PUT /books/:id
 const updateBook = async (req, res) => {
-  if (!isValidObjectId(req.params.id)) {
-    return res.status(400).json({ message: 'Invalid Book ID format' });
-  }
-
-  const book = buildBook(req.body);
-  const validationErrors = getValidationErrors(book);
-
-  if (validationErrors.length > 0) {
-    return res.status(400).json({ errors: validationErrors });
-  }
-
   try {
-    const bookId = new ObjectId(req.params.id);
-    const response = await mongodb.getDb().collection('books').replaceOne({ _id: bookId }, book);
-    if (response.modifiedCount > 0) {
-      res.status(204).send();
-    } else {
-      res.status(404).json({ message: 'Book not found or no changes made' });
+    const bookId = req.params.id;
+    const { title, authorId, year, genre } = req.body;
+
+    const existingBook = await Book.getBookById(bookId);
+    if (!existingBook) {
+      return res.status(404).json({ message: 'Book not found' });
     }
+
+    if (authorId) {
+      const author = await Author.getAuthorById(authorId);
+      if (!author) {
+        return res.status(400).json({ message: 'Referenced authorId does not exist' });
+      }
+    }
+
+    await Book.updateBook(bookId, {
+      title,
+      authorId,
+      year: Number(year),
+      genre
+    });
+
+    res.status(200).json({ message: 'Book updated successfully' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error in updateBook:', err);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 };
 
-// DELETE /books/:id
 const deleteBook = async (req, res) => {
-  if (!isValidObjectId(req.params.id)) {
-    return res.status(400).json({ message: 'Invalid Book ID format' });
-  }
-
   try {
-    const bookId = new ObjectId(req.params.id);
-    const response = await mongodb.getDb().collection('books').deleteOne({ _id: bookId });
-    if (response.deletedCount > 0) {
-      res.status(204).send();
-    } else {
-      res.status(404).json({ message: 'Book not found' });
+    const bookId = req.params.id;
+
+    const existingBook = await Book.getBookById(bookId);
+    if (!existingBook) {
+      return res.status(404).json({ message: 'Book not found' });
     }
+
+    await Book.deleteBook(bookId);
+    res.status(204).send();
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error in deleteBook:', err);
+    res.status(500).json({ message: 'Internal Server Error', error: err.message });
   }
 };
 
 module.exports = {
-  getAll,
-  getSingle,
+  getAllBooks,
+  getBookById,
   createBook,
   updateBook,
   deleteBook
