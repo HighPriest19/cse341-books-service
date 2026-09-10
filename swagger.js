@@ -3,13 +3,13 @@ const swaggerAutogen = require('swagger-autogen')();
 const doc = {
   info: {
     title: 'Books & Authors API',
-    description: 'API documentation for Books and Authors endpoints',
+    description: 'API documentation for Books and Authors service'
   },
-  host: 'localhost:3000',
-  schemes: ['http'],
+  host: 'cse341-books-service.onrender.com', // Updated from localhost:3000
+  schemes: ['https', 'http']                  // Added https
 };
 
-const outputFile = './swagger.json'; // Creates swagger.json in the root folder
-const endpointsFiles = ['./routes/index.js'];
+const outputFile = './swagger-output.json';
+const routes = ['./routes/index.js'];
 
-swaggerAutogen(outputFile, endpointsFiles, doc);
+swaggerAutogen(outputFile, routes, doc);
